@@ -1,0 +1,10 @@
+name = "ConjugateGradient"
+uuid = "544ed34a-48a4-42df-8f69-6656fd9f4d48"
+authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr>"]
+version = "0.1.0"
+
+[deps]
+LazyAlgebra = "aeaa251e-9d76-11e9-311b-83636bf44738"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
