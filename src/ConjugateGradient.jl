@@ -89,8 +89,9 @@ end
 yields a structure with all parameters and storage for temporary variables
 needed for running the linear conjugate gradient algorithm.  Argument `x`
 specifies the variables of the problem and is used to allocate temporary
-variables by calling `LazyAlgebra.vcreate(x)`.  Algorithm parameters are
-specified by the following keywords:
+variables by calling `LazyAlgebra.vcreate(x)`. The returned context holds no
+references on `x`.  Algorithm parameters are specified by the following
+keywords:
 
 * `precond` is to specify whether to allocate temporary variables to store the
   preconditioned residuals.  By default, `precond = false`.  If false, only the
@@ -102,8 +103,8 @@ specified by the following keywords:
 * `restart` is to specify the number of consecutive iterations before
   restarting the conjugate gradient recurrence.  Restarting the algorithm is to
   cope with the accumulation of rounding errors.  By default, `restart =
-  min(50,length(x))`.  Set `restart` to at least `maxiter` if you do not want
-  that any restarts ever occur.
+  min(50,length(x)+1)`.  Set `restart` to a value less or equal zero or greater
+  than `maxiter` if you do not want that any restarts ever occur.
 
 * `ftol = (fatol,frtol)` is to specify the absolute and relative tolerances for
   the function reduction.  By default, `ftol = (0.0,1e-8)`.
@@ -166,8 +167,8 @@ and `b`.  If none of these is suitable, the method `LazyAlgebra.vmul!` can be
 extended.  Note that, as `A` and `M` must be symmetric, it may be faster to
 apply their adjoint.
 
-Argument `b` is the *right-hand-side (RHS) vector* of the equations.  It is not
-modified by the algorithm.
+Argument `b` is the *right-hand-side (RHS) vector* of the equations.  It is
+left unchanged.
 
 Argument `ctx` is a [`ConjugateGradient.Context`](@ref) structure storing all
 temporary variables and parameters of the algorithm.  This argument is reusable
@@ -197,14 +198,15 @@ is:
     ∇f(x) = A*x - b
 
 hence solving `A*x = b` for `x` yields the minimum of `f(x)`.  The variations
-of `f(x)` between successive iterations, the Euclidean norm of the gradient
-`∇f(x)` or the variations of the variables `x` may be used to decide the
+of `f(x)` between successive iterations, the norm of the gradient `∇f(x)` or
+the norm of the variation of variables `x` may be used to decide the
 convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` below).
 
 Let `x_{k}`, `f_{k} = f(x_{k})` and `∇f_{k} = ∇f(x_{k})` denote the variables,
-the objective function and its gradient at iteration `k`.  The arguments `x`
-gives the initial variables `x_{0}`.  The different possibilities for the
-convergence of the algorithm are listed below.
+the objective function and its gradient at iteration `k`.  The argument `x`
+gives the initial variables `x_{0}`.  Starting with ; iteration with `k = 0`,
+the different possibilities for the convergence of the algorithm are listed
+below.
 
 * The convergence in the function reduction between succesive iterations occurs
   at iteration `k ≥ 1` if:
@@ -220,14 +222,18 @@ convergence of the algorithm are listed below.
   ```
 
   where `‖u‖_M = sqrt(u'*M*u)` is the Mahalanobis norm of `u` with precision
-  `M` (it is equal to the Euclidean norm of `u` if the preconditioner `M` is
-  the identity.
+  matrix `M` which is equal to the usual Euclidean norm of `u` if ; no
+  preconditioner is used or if `M` is the identity.
 
 * The convergence in the variables occurs at iteration `k ≥ 1` if:
 
   ```
   ‖x_{k} - x_{k-1}‖ ≤ max(xatol, xrtol*‖x_{k}‖)
   ```
+
+In the conjugate gradient algorithm, the objective function is always reduced
+at each iteration, but be aware that the gradient and the change of variables
+norms are not always reduced at each iteration.
 
 
 ## Returned Status
@@ -243,13 +249,13 @@ that the method has converged.  More specfically, `status` is one of:
   have been reached;
 
 - `ConjugateGradient.F_TEST_SATISFIED` if convergence occured because the
-  function reduction is less or equal the tolerance specified by `ftol`;
+  function reduction satisfies the criterion specified by `ftol`;
 
 - `ConjugateGradient.G_TEST_SATISFIED` if convergence occured because the
-  gradient norm is less or equal the tolerance specified by `gtol`;
+  gradient norm satisfies the criterion specified by `gtol`;
 
-- `ConjugateGradient.X_TEST_SATISFIED` if convergence occured because the
-  variables change is less or equal the tolerance specified by `xtol`.
+- `ConjugateGradient.X_TEST_SATISFIED` if convergence occured because the norm
+  of the variation of variables satisfies the criterion specified by `xtol`.
 
 Method [`ConjugateGradient.reason`](@ref) may be called to get a textual
 explanation about the returned status.
@@ -273,40 +279,47 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
               "a preconditioner")
     end
 
-    # Early return (avoiding any computation).
-    if ctx.maxiter < 1
-        verbose && println(io, "# Too many iteration(s).")
-        return TOO_MANY_ITERATIONS
-    end
+    # Enforce types of some variables (FIXME: This will not work for BigFloat).
+    local rho::Float64, oldrho::Float64
+    local alpha::Float64, gamma::Float64
+    local psi::Float64, psimax::Float64
+    local gtest::Float64
 
-    # Initial residuals.
+    # Initialize local variables.
+    rho = 0.0
+    psi = 0.0
+    psimax = 0.0
+    xtest = (ctx.xatol > 0 || ctx.xrtol > 0)
     if verbose
         t0 = time()
     end
-    if vnorm2(x) > 0 # cheap trick to check whether x is non-zero
-        # Compute r = b - A*x.
-        vcombine!(r, 1, b, -1, vmul!(r, A, x))
-    else
-        # Spare applying A since x = 0.
-        vcopy!(r, b)
-    end
-
-    # Predefine some variables (to the correct type).
-    rho = zero(Float64)
-    psi = zero(Float64)
-    psimax = zero(Float64)
-    gtest = zero(Float64)
-    xtest = (ctx.xatol > 0 || ctx.xrtol > 0)
 
     # Conjugate gradient iterations.
     k = 0
     while true
+        # Is this the initial or a restarted iteration?
+        restart = (k == 0 || ctx.restart > 0 && rem(k, ctx.restart) == 0)
+
+        # Compute residuals and their squared norm.
+        if restart
+            # Compute residuals.
+            if k > 0 || vnorm2(x) != 0
+                # Compute r = b - A*x.
+                vcombine!(r, 1, b, -1, vmul!(r, A, x))
+            else
+                # Spare applying A since x = 0.
+                vcopy!(r, b)
+            end
+        else
+            # Update residuals.
+            vupdate!(r, -alpha, q)
+        end
         if precond
             # Apply preconditioner.
             vmul!(z, M, r) # z = M*r
         end
         oldrho = rho
-        rho = vdot(Float64, r, z) # rho = ‖r‖_M^2
+        rho = vdot(r, z) # rho = ‖r‖_M^2
         if k == 0
             gtest = tolerance(ctx.gatol, ctx.gatol, sqrt(rho))
         end
@@ -332,30 +345,29 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
                         k, t, psi, sqrt(rho))
             end
         end
-        k += 1
         if sqrt(rho) ≤ gtest
             # Normal convergence in the gradient norm.
             verbose && println(io, "# Convergence in the gradient norm.")
             return G_TEST_SATISFIED
-        elseif k > ctx.maxiter
+        end
+        if k ≥ ctx.maxiter
             verbose && println(io, "# Too many iteration(s).")
             return TOO_MANY_ITERATIONS
         end
-        if rem(k, ctx.restart) == 1
-            # Restart or first iteration.
-            if k > 1
-                # Restart.
-                vcombine!(r, 1, b, -1, vmul!(r, A, x))
-            end
+
+        # Compute search direction.
+        if restart
+            # Restarting or first iteration.
             vcopy!(p, z)
         else
+            # Apply recurrence.
             beta = rho/oldrho
             vcombine!(p, 1, z, beta, p)
         end
 
         # Compute optimal step size.
         vmul!(q, A, p)
-        gamma = vdot(Float64, p, q)
+        gamma = vdot(p, q)
         if !(gamma > 0)
             verbose && println(io, "# Operator is not positive definite.")
             return NOT_POSITIVE_DEFINITE
@@ -366,42 +378,48 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         vupdate!(x, +alpha, p)
         psi = alpha*rho/2  # psi = f(x_{k}) - f(x_{k+1}) ≥ 0
         psimax = max(psi, psimax)
-        if psi ≤ tolerance(ctx.fatol,ctx.frtol,psimax)
+        if psi ≤ tolerance(ctx.fatol, ctx.frtol, psimax)
             # Normal convergence in the function reduction.
             verbose && println(io, "# Convergence in the function reduction.")
             return F_TEST_SATISFIED
         end
-        if xtest && alpha*vnorm2(Float64,p) ≤ tolerance(ctx.xatol,ctx.xrtol,x)
+        if xtest && alpha*vnorm2(p) ≤ tolerance(ctx.xatol, ctx.xrtol, x)
             # Normal convergence in the variables.
             verbose && println(io, "# Convergence in the variables.")
             return X_TEST_SATISFIED
         end
 
-        # Update residuals.
-        vupdate!(r, -alpha, q)
+        # Increment iteration number.
+        k += 1
     end
 end
 
 """
 
 Given absolute and relative tolerances `atol` and `rtol` (both finite and
-nonnegative), the calls
+nonnegative), the calls:
 
     tolerance(atol, rtol, val) -> max(0, atol, rtol*abs(val))
     tolerance(atol, rtol, arr) -> max(0, atol, rtol*vnorm2(arr))
 
-yields the tolerances for the scalar `val` or for the array `arr`.  The result
-is nonnegative and of type `Float64`.
+yield the tolerances for the scalar `val` or for the array `arr`.  The result
+is nonnegative.
 
 If `rtol ≤ 0`, the computation of `vnorm2(arr)` is not performed.
 
 """
 tolerance(atol::Real, rtol::Real, val::Real) =
-    max(zero(Float64), Float64(atol), Float64(rtol)*abs(Float64(val)))
+    tolerance(promote(atol, rtol, val)...)
 
-tolerance(atol::Real, rtol::Real, arr::AbstractArray) =
-    max(Float64(atol),
-        (rtol > 0 ? Float64(rtol)*Float64(vnorm2(arr)) : zero(Float64)))
+tolerance(atol::T, rtol::T, val::T) where {T<:Real} =
+    max(zero(T), atol, rtol*abs(val))
+
+function tolerance(atol::Real, rtol::Real,
+                   arr::AbstractArray{T}) where {T<:AbstractFloat}
+    # NOTE: This is to ensure type stability.
+    val = (rtol > 0 ? vnorm2(arr)::T : zero(T))
+    tolerance(atol, rtol, val)
+end
 
 """
     bad_argument(args...)
