@@ -1,4 +1,4 @@
-# Linera conjugate gradient algorithm for Julia
+# Linear conjugate gradient algorithm for Julia
 
 | **License**                     | **Build Status**                                                | **Code Coverage**                                                   |
 |:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|
@@ -10,15 +10,28 @@ conjugate gradient algorithm, possibly with a preconditioner.
 [`LazyAlgebra`](https://emmt.github.io/LazyAlgebra.jl) framework to be as
 general as possible without sacrificing performances.
 
+One of the requirements is to avoid allocating resources on every call so that
+the method can be used for real-time applications without the risk of being
+interrupted by the garbage collector.  To achieve this, the implemented
+algorithm has all workspace arrays stored in a context provided by the caller.
+This context can be created once and used as many times as wanted (for solving
+problems of the same size and type).
+
+The implemented algorithm is very flexible in the type of variables and
+operators of the problem and has a number of possible criteria for stopping the
+iterations.
+
+
 ## Installation
 
-`ConjugateGradient` is not yet an [official Julia package][julia-pkgs-url] but
-it is easy to install.  In Julia, hit the `]` key to switch to the package
-manager REPL (you should get a `... pkg>` prompt) and type:
+The easiest way to install `ConjugateGradient.jl` is via
+[`EmmtRegistry`](https://github.com/emmt/EmmtRegistry) which is my own registry
+of Julia packages:
 
 ```julia
-... pkg> add https://emmt.github.io/LazyAlgebra.jl
-... pkg> add https://emmt.github.io/ConjugateGradient.jl
+using Pkg
+pkg"registry add https://github.com/emmt/EmmtRegistry"
+pkg"add ConjugateGradient"
 ```
 
 [doc-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg

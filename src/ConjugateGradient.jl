@@ -204,9 +204,8 @@ convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` below).
 
 Let `x_{k}`, `f_{k} = f(x_{k})` and `∇f_{k} = ∇f(x_{k})` denote the variables,
 the objective function and its gradient at iteration `k`.  The argument `x`
-gives the initial variables `x_{0}`.  Starting with ; iteration with `k = 0`,
-the different possibilities for the convergence of the algorithm are listed
-below.
+gives the initial variables `x_{0}`.  Starting with `k = 0`, the different
+possibilities for the convergence of the algorithm are listed below.
 
 * The convergence in the function reduction between succesive iterations occurs
   at iteration `k ≥ 1` if:
