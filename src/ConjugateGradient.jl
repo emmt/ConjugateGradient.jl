@@ -5,24 +5,29 @@ using LinearAlgebra
 using Printf
 
 """
-    ConjugateGradient.reason(code) -> str
+    ConjugateGradient.reason(status) -> str
 
-yields a textual description of the code returned by the conjugate gradient
+yields a textual description of the status returned by the conjugate gradient
 method.
 
-""" reason
-const NOT_POSITIVE_DEFINITE = -1
-const TOO_MANY_ITERATIONS   =  0
-const F_TEST_SATISFIED      =  1
-const G_TEST_SATISFIED      =  2
-const X_TEST_SATISFIED      =  3
-reason(code::Integer) = (
-    code == NOT_POSITIVE_DEFINITE ? "LHS operator is not positive definite" :
-    code == TOO_MANY_ITERATIONS   ? "too many iterations" :
-    code == F_TEST_SATISFIED      ? "function reduction test satisfied" :
-    code == G_TEST_SATISFIED      ? "gradient test satisfied" :
-    code == X_TEST_SATISFIED      ? "variables change test satisfied" :
-    "unknown conjugate gradient result")
+"""
+reason(status::Symbol) =
+    status === :NOT_POSITIVE_DEFINITE ? "LHS operator is not positive definite" :
+    status === :TOO_MANY_ITERATIONS   ? "too many iterations" :
+    status === :F_TEST_SATISFIED      ? "function reduction test satisfied" :
+    status === :G_TEST_SATISFIED      ? "gradient test satisfied" :
+    status === :X_TEST_SATISFIED      ? "variables change test satisfied" :
+    "unknown conjugate gradient result"
+
+"""
+    ConjugateGradient.has_converged(status) -> bool
+
+yields whether ConjugateGradient.solve!` has converged according to `status`.
+method.
+
+"""
+has_converged(status::Symbol) =
+    (status === :F_TEST_SATISFIED) | (status === :G_TEST_SATISFIED) | (status === :X_TEST_SATISFIED)
 
 struct Context{V}
     p::V # current search direction
@@ -87,40 +92,40 @@ end
     ConjugateGradient.Context(x) -> ctx
 
 yields a structure with all parameters and storage for temporary variables
-needed for running the linear conjugate gradient algorithm.  Argument `x`
+needed for running the linear conjugate gradient algorithm. Argument `x`
 specifies the variables of the problem and is used to allocate temporary
 variables by calling `LazyAlgebra.vcreate(x)`. The returned context holds no
-references on `x`.  Algorithm parameters are specified by the following
+references on `x`. Algorithm parameters are specified by the following
 keywords:
 
 * `precond` is to specify whether to allocate temporary variables to store the
-  preconditioned residuals.  By default, `precond = false`.  If false, only the
+  preconditioned residuals. By default, `precond = false`. If false, only the
   un-preconditioned version of the algorithm can be run.
 
 * `maxiter` is to specify the maximum number of iterations to perform which is
   practically unlimited by default.
 
 * `restart` is to specify the number of consecutive iterations before
-  restarting the conjugate gradient recurrence.  Restarting the algorithm is to
-  cope with the accumulation of rounding errors.  By default, `restart =
-  min(50,length(x)+1)`.  Set `restart` to a value less or equal zero or greater
+  restarting the conjugate gradient recurrence. Restarting the algorithm is to
+  cope with the accumulation of rounding errors. By default, `restart =
+  min(50,length(x)+1)`. Set `restart` to a value less or equal zero or greater
   than `maxiter` if you do not want that any restarts ever occur.
 
 * `ftol = (fatol,frtol)` is to specify the absolute and relative tolerances for
-  the function reduction.  By default, `ftol = (0.0,1e-8)`.
+  the function reduction. By default, `ftol = (0.0,1e-8)`.
 
 * `gtol = (gatol,grtol)` is to specify the absolute and relative tolerances for
   stopping the algorithm based on the gradient of the objective function.
   Convergence occurs when the Mahalanobis norm of the residuals (which is that
   of the gradient of the associated objective function) is less or equal the
   largest of `gatol` and `grtol` times the Mahalanobis norm of the initial
-  residuals.  By default, `gtol = (0.0,1e-5)`.
+  residuals. By default, `gtol = (0.0,1e-5)`.
 
 * `xtol = (xatol,xrtol)` is to specify the absolute and relative tolerances for
-  the change in variables.  By default, `xtol = (0.0,1e-6)`.
+  the change in variables. By default, `xtol = (0.0,1e-6)`.
 
-Just recall the constructor with an instance of `ConjugateGradient.Context`
-to re-use the same temporary variables (if possible) but different parameters:
+Just recall the constructor with an instance of `ConjugateGradient.Context` to
+re-use the same temporary variables (if possible) but different parameters:
 
     ConjugateGradient.Context(ctx; precond=…, maxiter=…, ...)
 
@@ -160,27 +165,27 @@ system of equations `A*x = b` in `x` and according to the settings in `ctx`.
 Argument `x` stores the initial solution on entry and the estimated solution on
 return.
 
-Argument `A` implements the *left-hand-side (LHS) matrix* of the equations.  It
+Argument `A` implements the *left-hand-side (LHS) matrix* of the equations. It
 is used as `LazyAlgebra.vmul!(dst,A,src)` to store in `dst` the result of
 applying `A` to `src` and where `src` and `dst` are similar to arguments `x`
-and `b`.  If none of these is suitable, the method `LazyAlgebra.vmul!` can be
-extended.  Note that, as `A` and `M` must be symmetric, it may be faster to
+and `b`. If none of these is suitable, the method `LazyAlgebra.vmul!` can be
+extended. Note that, as `A` and `M` must be symmetric, it may be faster to
 apply their adjoint.
 
 Argument `b` is the *right-hand-side (RHS) vector* of the equations.  It is
 left unchanged.
 
 Argument `ctx` is a [`ConjugateGradient.Context`](@ref) structure storing all
-temporary variables and parameters of the algorithm.  This argument is reusable
+temporary variables and parameters of the algorithm. This argument is reusable
 and is required to avoid any additional allocations.
 
-Optional argument `M` is a preconditioner.  If `M` is unspecified or if `M` is
+Optional argument `M` is a preconditioner. If `M` is unspecified or if `M` is
 `LazyAlgebra.Identity()`, the unpreconditioned version of the algorithm is run.
 The preconditioner can be specified in various forms (as for the LHS operator
 `A`).
 
 Optional argument `io` is to specify an `IO` instance to which print various
-information at each iterations.  Nothing is printed if `io` is `devnull` which
+information at each iterations. Nothing is printed if `io` is `devnull` which
 is the default.
 
 
@@ -192,19 +197,18 @@ function:
 
     f(x) = (1/2)*x'*A*x - b'*x + ϵ
 
-where `ϵ` is an arbitrary constant.  The gradient of this objective function
-is:
+where `ϵ` is an arbitrary constant. The gradient of this objective function is:
 
     ∇f(x) = A*x - b
 
-hence solving `A*x = b` for `x` yields the minimum of `f(x)`.  The variations
-of `f(x)` between successive iterations, the norm of the gradient `∇f(x)` or
-the norm of the variation of variables `x` may be used to decide the
-convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` below).
+hence solving `A*x = b` for `x` yields the minimum of `f(x)`. The variations of
+`f(x)` between successive iterations, the norm of the gradient `∇f(x)`, or the
+norm of the variation of variables `x` may be used to decide the convergence of
+the algorithm (see keywords `ftol`, `gtol` and `xtol` below).
 
 Let `x_{k}`, `f_{k} = f(x_{k})` and `∇f_{k} = ∇f(x_{k})` denote the variables,
-the objective function and its gradient at iteration `k`.  The argument `x`
-gives the initial variables `x_{0}`.  Starting with `k = 0`, the different
+the objective function and its gradient at iteration `k`. The argument `x`
+gives the initial variables `x_{0}`. Starting with `k = 0`, the different
 possibilities for the convergence of the algorithm are listed below.
 
 * The convergence in the function reduction between succesive iterations occurs
@@ -221,7 +225,7 @@ possibilities for the convergence of the algorithm are listed below.
   ```
 
   where `‖u‖_M = sqrt(u'*M*u)` is the Mahalanobis norm of `u` with precision
-  matrix `M` which is equal to the usual Euclidean norm of `u` if ; no
+  matrix `M` which is equal to the usual Euclidean norm of `u` if no
   preconditioner is used or if `M` is the identity.
 
 * The convergence in the variables occurs at iteration `k ≥ 1` if:
@@ -237,24 +241,21 @@ norms are not always reduced at each iteration.
 
 ## Returned Status
 
-The returned value `status` is negative to indicate an error, zero to indicate
-that the maximum number of iterations have been reached, positive to indicate
-that the method has converged.  More specfically, `status` is one of:
+The returned value `status` is one of:
 
-- `ConjugateGradient.NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is
-  found to be not positive definite;
+- `:NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is found to be not
+  positive definite;
 
-- `ConjugateGradient.TOO_MANY_ITERATIONS` if the maximum number of iterations
-  have been reached;
+- `:TOO_MANY_ITERATIONS` if the maximum number of iterations have been reached;
 
-- `ConjugateGradient.F_TEST_SATISFIED` if convergence occured because the
-  function reduction satisfies the criterion specified by `ftol`;
+- `:F_TEST_SATISFIED` if convergence occured because the function reduction
+  satisfies the criterion specified by `ftol`;
 
-- `ConjugateGradient.G_TEST_SATISFIED` if convergence occured because the
-  gradient norm satisfies the criterion specified by `gtol`;
+- `:G_TEST_SATISFIED` if convergence occured because the gradient norm
+  satisfies the criterion specified by `gtol`;
 
-- `ConjugateGradient.X_TEST_SATISFIED` if convergence occured because the norm
-  of the variation of variables satisfies the criterion specified by `xtol`.
+- `:X_TEST_SATISFIED` if convergence occured because the norm of the variation
+  of variables satisfies the criterion specified by `xtol`.
 
 Method [`ConjugateGradient.reason`](@ref) may be called to get a textual
 explanation about the returned status.
@@ -347,11 +348,11 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         if sqrt(rho) ≤ gtest
             # Normal convergence in the gradient norm.
             verbose && println(io, "# Convergence in the gradient norm.")
-            return G_TEST_SATISFIED
+            return :G_TEST_SATISFIED
         end
         if k ≥ ctx.maxiter
             verbose && println(io, "# Too many iteration(s).")
-            return TOO_MANY_ITERATIONS
+            return :TOO_MANY_ITERATIONS
         end
 
         # Compute search direction.
@@ -369,7 +370,7 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         gamma = vdot(p, q)
         if !(gamma > 0)
             verbose && println(io, "# Operator is not positive definite.")
-            return NOT_POSITIVE_DEFINITE
+            return :NOT_POSITIVE_DEFINITE
         end
         alpha = rho/gamma
 
@@ -380,12 +381,12 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         if psi ≤ tolerance(ctx.fatol, ctx.frtol, psimax)
             # Normal convergence in the function reduction.
             verbose && println(io, "# Convergence in the function reduction.")
-            return F_TEST_SATISFIED
+            return :F_TEST_SATISFIED
         end
         if xtest && alpha*vnorm2(p) ≤ tolerance(ctx.xatol, ctx.xrtol, x)
             # Normal convergence in the variables.
             verbose && println(io, "# Convergence in the variables.")
-            return X_TEST_SATISFIED
+            return :X_TEST_SATISFIED
         end
 
         # Increment iteration number.
@@ -401,8 +402,8 @@ nonnegative), the calls:
     tolerance(atol, rtol, val) -> max(0, atol, rtol*abs(val))
     tolerance(atol, rtol, arr) -> max(0, atol, rtol*vnorm2(arr))
 
-yield the tolerances for the scalar `val` or for the array `arr`.  The result
-is nonnegative.
+yield the tolerances for the scalar `val` or for the array `arr`. The result is
+nonnegative.
 
 If `rtol ≤ 0`, the computation of `vnorm2(arr)` is not performed.
 
@@ -423,8 +424,8 @@ end
 """
     bad_argument(args...)
 
-throws an `ArgumentError` exception with `args...` converted into a string
-as error message.
+throws an `ArgumentError` exception with `args...` converted into a string as
+error message.
 
 """
 bad_argument(msg::AbstractString) = throw(ArgumentError(msg))

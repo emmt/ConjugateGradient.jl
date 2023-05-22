@@ -6,6 +6,8 @@ VERBOSE = true
 io = (VERBOSE ? stdout : ConjugateGradient.quiet)
 dims = (29,11)
 nrows, ncols = dims
+status_ok = (:F_TEST_SATISFIED, :G_TEST_SATISFIED, :X_TEST_SATISFIED,
+             :TOO_MANY_ITERATIONS)
 @testset "least-square fit ($T)" for T in (Float32, Float64)
     # State the problem (least square fit).
     H = rand(T, dims) # direct model
@@ -34,7 +36,7 @@ nrows, ncols = dims
     x1 = fill!(similar(b), 0)
     VERBOSE && println("\n# Run the conjugate gradient from 0:")
     status = ConjugateGradient.solve!(x1, A, b, ws, io)
-    @test status ≥ 0
+    @test status ∈ status_ok
     VERBOSE && println("rel. err. for x1: ", vnorm2(x1 - x0)/vnorm2(x0))
     @test vnorm2(x1 - x0) ≤ atol
 
@@ -48,7 +50,7 @@ nrows, ncols = dims
     x2 = fill!(similar(b), 0)
     VERBOSE && println("\n# Run the preconditioned conjugate gradient from 0:")
     status = ConjugateGradient.solve!(x2, A, b, M, ws, io)
-    @test status ≥ 0
+    @test status ∈ status_ok
     VERBOSE && println("rel. err. for x1: ", vnorm2(x1 - x0)/vnorm2(x0))
     @test vnorm2(x1 - x0) ≤ atol
 end
