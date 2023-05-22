@@ -48,30 +48,22 @@ struct Context{V}
                         ftol::NTuple{2,Real} = (0.0, 1e-8),
                         gtol::NTuple{2,Real} = (0.0, 1e-5),
                         xtol::NTuple{2,Real} = (0.0, 1e-6)) where {V}
-        maxiter ≥ 0 ||
-            bad_argument("bad maximum number of iterations",
-                         " (maxiter = ", maxiter, ")")
-        restart ≥ 1 ||
-            bad_argument("bad number of iterations for restarting",
-                         " (restart = ", restart,")")
-        ftol[1] ≥ 0 ||
-            bad_argument("bad function reduction absolute tolerance",
-                         " (ftol[1] = ", ftol[1], ")")
-        0 ≤ ftol[2] < 1 ||
-            bad_argument("bad function reduction relative tolerance",
-                         " (ftol[2] = ", ftol[2], ")")
-        gtol[1] ≥ 0 ||
-            bad_argument("bad gradient absolute tolerance",
-                         " (gtol[1] = ", gtol[1], ")")
-        0 ≤ gtol[2] < 1 ||
-            bad_argument("bad gradient relative tolerance",
-                         " (gtol[2] = ", gtol[2], ")")
-        xtol[1] ≥ 0 ||
-            bad_argument("bad variables change absolute tolerance",
-                         " (xtol[1] = ", xtol[1], ")")
-        0 ≤ xtol[2] < 1 ||
-            bad_argument("bad variables change relative tolerance",
-                         " (xtol[2] = ", xtol[1], ")")
+        maxiter ≥ 0 || bad_argument(
+            "bad maximum number of iterations (maxiter = ", maxiter, ")")
+        restart ≥ 1 || bad_argument(
+            "bad number of iterations for restarting (restart = ", restart,")")
+        ftol[1] ≥ 0 || bad_argument(
+            "bad function reduction absolute tolerance (ftol[1] = ", ftol[1], ")")
+        0 ≤ ftol[2] < 1 || bad_argument(
+            "bad function reduction relative tolerance (ftol[2] = ", ftol[2], ")")
+        gtol[1] ≥ 0 || bad_argument(
+            "bad gradient absolute tolerance (gtol[1] = ", gtol[1], ")")
+        0 ≤ gtol[2] < 1 || bad_argument(
+            "bad gradient relative tolerance (gtol[2] = ", gtol[2], ")")
+        xtol[1] ≥ 0 || bad_argument(
+            "bad variables change absolute tolerance (xtol[1] = ", xtol[1], ")")
+        0 ≤ xtol[2] < 1 || bad_argument(
+            "bad variables change relative tolerance (xtol[2] = ", xtol[1], ")")
         return new{V}(p, q, r, z, maxiter, restart, ftol[1], ftol[2],
                       gtol[1], gtol[2], xtol[1], xtol[2])
     end
@@ -424,8 +416,8 @@ end
 """
     bad_argument(args...)
 
-throws an `ArgumentError` exception with `args...` converted into a string as
-error message.
+throws an `ArgumentError` exception with error message given by `args...`
+converted into a string.
 
 """
 bad_argument(msg::AbstractString) = throw(ArgumentError(msg))
