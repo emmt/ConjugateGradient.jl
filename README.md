@@ -1,8 +1,8 @@
 # Linear conjugate gradient algorithm for Julia
 
-[![Build Status](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/ConjugateGradient.jl?svg=true)](https://ci.appveyor.com/project/emmt/ConjugateGradient-jl)
-[![Coverage](https://codecov.io/gh/emmt/ConjugateGradient.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/ConjugateGradient.jl)
+[![Coverage](https://codecov.io/gh/emmt/ConjugateGradient.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/emmt/ConjugateGradient.jl)
 
 This [Julia](https://julialang.org/) package provides an implementation of the (linear)
 conjugate gradient algorithm, possibly with a preconditioner.
