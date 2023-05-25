@@ -1,6 +1,7 @@
 module ConjugateGradientTests
 
-using Test, LinearAlgebra, LazyAlgebra, ConjugateGradient
+using Test, LinearAlgebra, ConjugateGradient
+using NumOptBase: Diag, norm2
 
 VERBOSE = true
 io = (VERBOSE ? stdout : ConjugateGradient.quiet)
@@ -23,7 +24,7 @@ status_ok = (:F_TEST_SATISFIED, :G_TEST_SATISFIED, :X_TEST_SATISFIED,
 
     # Tolerances.
     rtol = 1e-3
-    atol = rtol*vnorm2(x0)
+    atol = rtol*norm2(x0)
 
     # Solve with conjugate gradient algorithm.
     n = length(b)
@@ -37,8 +38,8 @@ status_ok = (:F_TEST_SATISFIED, :G_TEST_SATISFIED, :X_TEST_SATISFIED,
     VERBOSE && println("\n# Run the conjugate gradient from 0:")
     status = ConjugateGradient.solve!(x1, A, b, ws, io)
     @test status ∈ status_ok
-    VERBOSE && println("rel. err. for x1: ", vnorm2(x1 - x0)/vnorm2(x0))
-    @test vnorm2(x1 - x0) ≤ atol
+    VERBOSE && println("rel. err. for x1: ", norm2(x1 - x0)/norm2(x0))
+    @test norm2(x1 - x0) ≤ atol
 
     # Simple diagonal preconditioner.
     q = convert(Vector{T}, diag(A))
@@ -51,8 +52,8 @@ status_ok = (:F_TEST_SATISFIED, :G_TEST_SATISFIED, :X_TEST_SATISFIED,
     VERBOSE && println("\n# Run the preconditioned conjugate gradient from 0:")
     status = ConjugateGradient.solve!(x2, A, b, M, ws, io)
     @test status ∈ status_ok
-    VERBOSE && println("rel. err. for x1: ", vnorm2(x1 - x0)/vnorm2(x0))
-    @test vnorm2(x1 - x0) ≤ atol
+    VERBOSE && println("rel. err. for x1: ", norm2(x1 - x0)/norm2(x0))
+    @test norm2(x1 - x0) ≤ atol
 end
 
 end # module

@@ -1,8 +1,7 @@
 module ConjugateGradient
 
-using LazyAlgebra
-using LinearAlgebra
 using Printf
+using NumOptBase: Identity, apply!, combine!, inner, norm2, update!
 
 """
     ConjugateGradient.reason(status) -> str
@@ -86,9 +85,8 @@ end
 yields a structure with all parameters and storage for temporary variables
 needed for running the linear conjugate gradient algorithm. Argument `x`
 specifies the variables of the problem and is used to allocate temporary
-variables by calling `LazyAlgebra.vcreate(x)`. The returned context holds no
-references on `x`. Algorithm parameters are specified by the following
-keywords:
+variables by calling `similar(x)`. The returned context holds no references on
+`x`. Algorithm parameters are specified by the following keywords:
 
 * `precond` is to specify whether to allocate temporary variables to store the
   preconditioned residuals. By default, `precond = false`. If false, only the
@@ -123,10 +121,10 @@ re-use the same temporary variables (if possible) but different parameters:
 
 """
 function Context(x::V; precond::Bool = false, kwds...) where {V}
-    p = vcreate(x)
-    q = vcreate(x)
-    r = vcreate(x)
-    z = (precond ? vcreate(x) : r)
+    p = similar(x)
+    q = similar(x)
+    r = similar(x)
+    z = (precond ? similar(x) : r)
     return Context{V}(p, q, r, z; kwds...)
 end
 
@@ -140,7 +138,7 @@ function Context(ctx::Context{V};
     return Context{V}(ctx.p,
                       ctx.q,
                       ctx.r,
-                      (precond && ctx.z === ctx.r ? vcreate(ctx.r) : ctx.z);
+                      (precond && ctx.z === ctx.r ? similar(ctx.r) : ctx.z);
                       maxiter = maxiter,
                       restart = restart,
                       ftol = ftol,
@@ -158,9 +156,9 @@ Argument `x` stores the initial solution on entry and the estimated solution on
 return.
 
 Argument `A` implements the *left-hand-side (LHS) matrix* of the equations. It
-is used as `LazyAlgebra.vmul!(dst,A,src)` to store in `dst` the result of
+is used as `OptimBase.apply!(dst,A,src)` to store in `dst` the result of
 applying `A` to `src` and where `src` and `dst` are similar to arguments `x`
-and `b`. If none of these is suitable, the method `LazyAlgebra.vmul!` can be
+and `b`. If none of these is suitable, the method `OptimBase.apply!` can be
 extended. Note that, as `A` and `M` must be symmetric, it may be faster to
 apply their adjoint.
 
@@ -172,7 +170,7 @@ temporary variables and parameters of the algorithm. This argument is reusable
 and is required to avoid any additional allocations.
 
 Optional argument `M` is a preconditioner. If `M` is unspecified or if `M` is
-`LazyAlgebra.Identity()`, the unpreconditioned version of the algorithm is run.
+`OptimBase.Identity()`, the unpreconditioned version of the algorithm is run.
 The preconditioner can be specified in various forms (as for the LHS operator
 `A`).
 
@@ -295,23 +293,23 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         # Compute residuals and their squared norm.
         if restart
             # Compute residuals.
-            if k > 0 || vnorm2(x) != 0
-                # Compute r = b - A*x.
-                vcombine!(r, 1, b, -1, vmul!(r, A, x))
+            if k > 0 || norm2(x) != 0
+                # Compute r = b - A*x using r to temporarily store A*x.
+                combine!(r, 1, b, -1, apply!(r, A, x))
             else
                 # Spare applying A since x = 0.
-                vcopy!(r, b)
+                copyto!(r, b)
             end
         else
             # Update residuals.
-            vupdate!(r, -alpha, q)
+            update!(r, -alpha, q) # r -= α⋅q
         end
         if precond
             # Apply preconditioner.
-            vmul!(z, M, r) # z = M*r
+            apply!(z, M, r) # z = M*r
         end
         oldrho = rho
-        rho = vdot(r, z) # rho = ‖r‖_M^2
+        rho = inner(r, z) # rho = ‖r‖_M^2
         if k == 0
             gtest = tolerance(ctx.gatol, ctx.gatol, sqrt(rho))
         end
@@ -326,7 +324,7 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
                           "-------------\n")
                 end
                 @printf(io, "%7d %11.3f %12.4e %12.4e %12.4e\n",
-                        k, t, psi, vnorm2(r), sqrt(rho))
+                        k, t, psi, norm2(r), sqrt(rho))
             else
                 if k == 0
                     print(io,
@@ -350,24 +348,24 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         # Compute search direction.
         if restart
             # Restarting or first iteration.
-            vcopy!(p, z)
+            copyto!(p, z)
         else
             # Apply recurrence.
             beta = rho/oldrho
-            vcombine!(p, 1, z, beta, p)
+            combine!(p, 1, z, beta, p)
         end
 
         # Compute optimal step size.
-        vmul!(q, A, p)
-        gamma = vdot(p, q)
-        if !(gamma > 0)
+        apply!(q, A, p)
+        gamma = inner(p, q)
+        if !(gamma > zero(gamma))
             verbose && println(io, "# Operator is not positive definite.")
             return :NOT_POSITIVE_DEFINITE
         end
         alpha = rho/gamma
 
         # Update variables and check for convergence.
-        vupdate!(x, +alpha, p)
+        update!(x, +alpha, p) # x += α⋅p
         psi = alpha*rho/2  # psi = f(x_{k}) - f(x_{k+1}) ≥ 0
         psimax = max(psi, psimax)
         if psi ≤ tolerance(ctx.fatol, ctx.frtol, psimax)
@@ -375,7 +373,7 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
             verbose && println(io, "# Convergence in the function reduction.")
             return :F_TEST_SATISFIED
         end
-        if xtest && alpha*vnorm2(p) ≤ tolerance(ctx.xatol, ctx.xrtol, x)
+        if xtest && alpha*norm2(p) ≤ tolerance(ctx.xatol, ctx.xrtol, x)
             # Normal convergence in the variables.
             verbose && println(io, "# Convergence in the variables.")
             return :X_TEST_SATISFIED
@@ -392,12 +390,12 @@ Given absolute and relative tolerances `atol` and `rtol` (both finite and
 nonnegative), the calls:
 
     tolerance(atol, rtol, val) -> max(0, atol, rtol*abs(val))
-    tolerance(atol, rtol, arr) -> max(0, atol, rtol*vnorm2(arr))
+    tolerance(atol, rtol, arr) -> max(0, atol, rtol*norm2(arr))
 
 yield the tolerances for the scalar `val` or for the array `arr`. The result is
 nonnegative.
 
-If `rtol ≤ 0`, the computation of `vnorm2(arr)` is not performed.
+If `rtol ≤ 0`, the computation of `norm2(arr)` is not performed.
 
 """
 tolerance(atol::Real, rtol::Real, val::Real) =
@@ -409,7 +407,7 @@ tolerance(atol::T, rtol::T, val::T) where {T<:Real} =
 function tolerance(atol::Real, rtol::Real,
                    arr::AbstractArray{T}) where {T<:AbstractFloat}
     # NOTE: This is to ensure type stability.
-    val = (rtol > 0 ? vnorm2(arr)::T : zero(T))
+    val = (rtol > 0 ? norm2(arr)::T : zero(T))
     tolerance(atol, rtol, val)
 end
 
