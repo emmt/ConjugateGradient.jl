@@ -1,10 +1,10 @@
 # Linear conjugate gradient algorithm for Julia
 
-| **License**                     | **Build Status**                                                | **Code Coverage**                                                   |
-|:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|
-| [![][license-img]][license-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
+[![Build Status](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/emmt/ConjugateGradient.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/ConjugateGradient.jl?svg=true)](https://ci.appveyor.com/project/emmt/ConjugateGradient-jl)
+[![Coverage](https://codecov.io/gh/emmt/ConjugateGradient.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/ConjugateGradient.jl)
 
-This [Julia][julia-url] package provides an implementation of the (linear)
+This [Julia](https://julialang.org/) package provides an implementation of the (linear)
 conjugate gradient algorithm, possibly with a preconditioner.
 `ConjugateGradient` exploits
 [`LazyAlgebra`](https://emmt.github.io/LazyAlgebra.jl) framework to be as
@@ -32,24 +32,3 @@ using Pkg
 pkg"registry add https://github.com/emmt/EmmtRegistry"
 pkg"add ConjugateGradient"
 ```
-
-[doc-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[doc-dev-url]: https://emmt.github.io/ConjugateGradient.jl/dev
-
-[license-url]: ./LICENSE.md
-[license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
-
-[travis-img]: https://travis-ci.org/emmt/ConjugateGradient.jl.svg?branch=master
-[travis-url]: https://travis-ci.org/emmt/ConjugateGradient.jl
-
-[appveyor-img]: https://ci.appveyor.com/api/projects/status/github/emmt/ConjugateGradient.jl?branch=master
-[appveyor-url]: https://ci.appveyor.com/project/emmt/ConjugateGradient-jl/branch/master
-
-[coveralls-img]: https://coveralls.io/repos/emmt/ConjugateGradient.jl/badge.svg?branch=master&service=github
-[coveralls-url]: https://coveralls.io/github/emmt/ConjugateGradient.jl?branch=master
-
-[codecov-img]: http://codecov.io/github/emmt/ConjugateGradient.jl/coverage.svg?branch=master
-[codecov-url]: http://codecov.io/github/emmt/ConjugateGradient.jl?branch=master
-
-[julia-url]: https://julialang.org/
-[julia-pkgs-url]: https://pkg.julialang.org/
