@@ -4,11 +4,11 @@
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/ConjugateGradient.jl?svg=true)](https://ci.appveyor.com/project/emmt/ConjugateGradient-jl)
 [![Coverage](https://codecov.io/gh/emmt/ConjugateGradient.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/emmt/ConjugateGradient.jl)
 
-This [Julia](https://julialang.org/) package provides an implementation of the (linear)
-conjugate gradient algorithm, possibly with a preconditioner.
+This [Julia](https://julialang.org/) package provides an implementation of the
+(linear) conjugate gradient algorithm, possibly with a pre-conditioner.
 `ConjugateGradient` exploits
-[`LazyAlgebra`](https://emmt.github.io/LazyAlgebra.jl) framework to be as
-general as possible without sacrificing performances.
+[`NumOptBase`](https://github.com/emmt/NumOptBase.jl)to be as general as
+possible without sacrificing performances.
 
 One of the requirements is to avoid allocating resources on every call so that
 the method can be used for real-time applications without the risk of being
@@ -18,8 +18,8 @@ This context can be created once and used as many times as wanted (for solving
 problems of the same size and type).
 
 The implemented algorithm is very flexible in the type of variables and
-operators of the problem and has a number of possible criteria for stopping the
-iterations.
+operators of the problem and implements a number of possible criteria for
+stopping the iterations.
 
 
 ## Installation
