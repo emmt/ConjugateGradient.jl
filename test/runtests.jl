@@ -7,8 +7,20 @@ VERBOSE = true
 io = (VERBOSE ? stdout : ConjugateGradient.quiet)
 dims = (29,11)
 nrows, ncols = dims
-status_ok = (:F_TEST_SATISFIED, :G_TEST_SATISFIED, :X_TEST_SATISFIED,
-             :TOO_MANY_ITERATIONS)
+status_successful = (ConjugateGradient.F_TEST_SATISFIED,
+                     ConjugateGradient.G_TEST_SATISFIED,
+                     ConjugateGradient.X_TEST_SATISFIED)
+status_ok = (status_successful...,
+             ConjugateGradient.TOO_MANY_ITERATIONS)
+
+@testset "Status" begin
+    for x in instances(ConjugateGradient.Status)
+        @test ConjugateGradient.has_converged(x) == (x ∈ status_successful)
+        y = @inferred Symbol(x)
+        @test ConjugateGradient.Status(y) === x
+    end
+end
+
 @testset "least-square fit ($T)" for T in (Float32, Float64)
     # State the problem (least square fit).
     H = rand(T, dims) # direct model

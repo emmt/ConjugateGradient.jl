@@ -4,18 +4,65 @@ using Printf
 using NumOptBase: Identity, apply!, combine!, inner, norm2, update!
 
 """
+    ConjugateGradient.Status
+
+type of result returned by [`ConjugateGradient.solve!`](@ref). This is an
+enumeration type whose instances can be compared as integers against another
+status or an integer because status is negative for errors, zero if maximum
+number of iterations has been exceeded, or positive on convergence.
+
+For example:
+
+    status > ConjugateGradient.TOO_MANY_ITERATIONS
+    status > 0
+
+can all be used to check whether algorithm has converged.
+
+The status can also be converted to a symbolic value by `Symbol(status)`.
+
+"""
+@enum Status begin
+    NOT_POSITIVE_DEFINITE = -1
+    TOO_MANY_ITERATIONS   =  0
+    F_TEST_SATISFIED      =  1
+    G_TEST_SATISFIED      =  2
+    X_TEST_SATISFIED      =  3
+end
+Base.isless(x::Status, y::Integer) = isless(Integer(x), y)
+Base.isless(x::Integer, y::Status) = isless(x, Integer(y))
+
+Base.isless(x::Status, y::Symbol) = isless(x, Status(y))
+Base.isless(x::Symbol, y::Status) = isless(Status(x), y)
+
+Base.:(==)(x::Status, y::Integer) = Integer(x) == y
+Base.:(==)(x::Integer, y::Status) = x == Integer(y)
+
+Base.:(==)(x::Status, y::Symbol) = x == Status(y)
+Base.:(==)(x::Symbol, y::Status) = Status(x) == y
+
+let ex1 = :(throw(ArgumentError("unknown status"))),
+    ex2 = :(throw(ArgumentError("unknown symbolic status")))
+    for val in sort!(collect(instances(Status)), rev=true)
+        ex1 = :(x === $(QuoteNode(Symbol(val))) ? $val : $ex1)
+        ex2 = :(x === $val ? $(QuoteNode(Symbol(val))) : $ex2)
+    end
+    @eval Status(x::Symbol) = $ex1
+    @eval Base.Symbol(x::Status) = $ex2
+end
+
+"""
     ConjugateGradient.reason(status) -> str
 
 yields a textual description of the status returned by the conjugate gradient
 method.
 
 """
-reason(status::Symbol) =
-    status === :NOT_POSITIVE_DEFINITE ? "LHS operator is not positive definite" :
-    status === :TOO_MANY_ITERATIONS   ? "too many iterations" :
-    status === :F_TEST_SATISFIED      ? "function reduction test satisfied" :
-    status === :G_TEST_SATISFIED      ? "gradient test satisfied" :
-    status === :X_TEST_SATISFIED      ? "variables change test satisfied" :
+reason(status::Status) =
+    status === NOT_POSITIVE_DEFINITE ? "LHS operator is not positive definite" :
+    status === TOO_MANY_ITERATIONS   ? "too many iterations" :
+    status === F_TEST_SATISFIED      ? "function reduction test satisfied" :
+    status === G_TEST_SATISFIED      ? "gradient test satisfied" :
+    status === X_TEST_SATISFIED      ? "variables change test satisfied" :
     "unknown conjugate gradient result"
 
 """
@@ -231,21 +278,23 @@ norms are not always reduced at each iteration.
 
 ## Returned Status
 
-The returned value `status` is one of:
+The returned value `status` is one of (in increasing order of their integer
+value):
 
-- `:NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is found to be not
-  positive definite;
+- `ConjugateGradient.NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is
+  found to be not positive definite;
 
-- `:TOO_MANY_ITERATIONS` if the maximum number of iterations have been reached;
+- `ConjugateGradient.TOO_MANY_ITERATIONS` if the maximum number of iterations
+  have been reached;
 
-- `:F_TEST_SATISFIED` if convergence occured because the function reduction
-  satisfies the criterion specified by `ftol`;
+- `ConjugateGradient.F_TEST_SATISFIED` if convergence occured because the
+  function reduction satisfies the criterion specified by `ftol`;
 
-- `:G_TEST_SATISFIED` if convergence occured because the gradient norm
-  satisfies the criterion specified by `gtol`;
+- `ConjugateGradient.G_TEST_SATISFIED` if convergence occured because the
+  gradient norm satisfies the criterion specified by `gtol`;
 
-- `:X_TEST_SATISFIED` if convergence occured because the norm of the variation
-  of variables satisfies the criterion specified by `xtol`.
+- `ConjugateGradient.X_TEST_SATISFIED` if convergence occured because the norm
+  of the variation of variables satisfies the criterion specified by `xtol`.
 
 Method [`ConjugateGradient.reason`](@ref) may be called to get a textual
 explanation about the returned status.
@@ -338,11 +387,11 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         if sqrt(rho) ≤ gtest
             # Normal convergence in the gradient norm.
             verbose && println(io, "# Convergence in the gradient norm.")
-            return :G_TEST_SATISFIED
+            return G_TEST_SATISFIED
         end
         if k ≥ ctx.maxiter
             verbose && println(io, "# Too many iteration(s).")
-            return :TOO_MANY_ITERATIONS
+            return TOO_MANY_ITERATIONS
         end
 
         # Compute search direction.
@@ -360,7 +409,7 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         gamma = inner(p, q)
         if !(gamma > zero(gamma))
             verbose && println(io, "# Operator is not positive definite.")
-            return :NOT_POSITIVE_DEFINITE
+            return NOT_POSITIVE_DEFINITE
         end
         alpha = rho/gamma
 
@@ -371,12 +420,12 @@ function solve!(x::V, A, b::V, M, ctx::Context{V},
         if psi ≤ tolerance(ctx.fatol, ctx.frtol, psimax)
             # Normal convergence in the function reduction.
             verbose && println(io, "# Convergence in the function reduction.")
-            return :F_TEST_SATISFIED
+            return F_TEST_SATISFIED
         end
         if xtest && alpha*norm2(p) ≤ tolerance(ctx.xatol, ctx.xrtol, x)
             # Normal convergence in the variables.
             verbose && println(io, "# Convergence in the variables.")
-            return :X_TEST_SATISFIED
+            return X_TEST_SATISFIED
         end
 
         # Increment iteration number.
