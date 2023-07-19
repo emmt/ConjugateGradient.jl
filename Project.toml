@@ -1,7 +1,7 @@
 name = "ConjugateGradient"
 uuid = "544ed34a-48a4-42df-8f69-6656fd9f4d48"
 authors = ["Éric Thiébaut <https://github.com/emmt>"]
-version = "0.2.1"
+version = "0.3.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
