@@ -15,7 +15,9 @@ status_ok = (status_successful...,
 
 @testset "Status" begin
     for x in instances(ConjugateGradient.Status)
+        @test issuccess(x) == (x ∈ status_successful)
         @test ConjugateGradient.has_converged(x) == (x ∈ status_successful)
+        @test_deprecated ConjugateGradient.has_converged(x)
         y = @inferred Symbol(x)
         @test ConjugateGradient.Status(y) === x
     end

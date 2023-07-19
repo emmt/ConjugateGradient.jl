@@ -1,5 +1,8 @@
 module ConjugateGradient
 
+export issuccess
+
+import LinearAlgebra: issuccess
 using Printf
 using NumOptBase: Identity, apply!, combine!, inner, norm2, update!
 
@@ -15,6 +18,7 @@ For example:
 
     status > ConjugateGradient.TOO_MANY_ITERATIONS
     status > 0
+    issuccess(status)
 
 can all be used to check whether algorithm has converged.
 
@@ -50,6 +54,9 @@ let ex1 = :(throw(ArgumentError("unknown status"))),
     @eval Base.Symbol(x::Status) = $ex2
 end
 
+issuccess(x::Status) = x > TOO_MANY_ITERATIONS
+@deprecate has_converged(x::Status) issuccess(x) false
+
 """
     ConjugateGradient.reason(status) -> str
 
@@ -64,16 +71,6 @@ reason(status::Status) =
     status === G_TEST_SATISFIED      ? "gradient test satisfied" :
     status === X_TEST_SATISFIED      ? "variables change test satisfied" :
     "unknown conjugate gradient result"
-
-"""
-    ConjugateGradient.has_converged(status) -> bool
-
-yields whether ConjugateGradient.solve!` has converged according to `status`.
-method.
-
-"""
-has_converged(status::Symbol) =
-    (status === :F_TEST_SATISFIED) | (status === :G_TEST_SATISFIED) | (status === :X_TEST_SATISFIED)
 
 struct Context{V}
     p::V # current search direction
@@ -297,7 +294,8 @@ value):
   of the variation of variables satisfies the criterion specified by `xtol`.
 
 Method [`ConjugateGradient.reason`](@ref) may be called to get a textual
-explanation about the returned status.
+explanation about the returned status. Method `issuccess(status)` may be called
+to check whether algorithm has converged.
 
 """
 function solve!(x::V, A, b::V, ctx::Context{V},

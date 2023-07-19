@@ -5,6 +5,9 @@
 - Status returned by `ConjugateGradient.solve!` is an enumeration which can be compared
   against an integer or another status.
 
+- Non-exported `ConjugateGradient.has_converged` has been deprecated in favor of
+  `LinearAlgebra.issuccess` which is exported.
+
 # Version 0.2.0
 
 - Use `NumOptBase` instead of `LazyAlgebra` for basic operations on variables.
